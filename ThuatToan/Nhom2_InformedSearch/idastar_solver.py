@@ -26,14 +26,18 @@ from sudoku_utils import is_valid, find_empty_cells, heuristic_min_conflicts_dom
 
 
 class SearchStep:
-    def __init__(self, board, row, col, value, action_type, f_value, f_limit):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
         self.col = col
         self.value = value
-        self.action_type = action_type   # 'try' | 'backtrack' | 'new_iteration' | 'prune'
-        self.f_value = f_value
-        self.f_limit = f_limit
+        self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 
 class IDAStarSolver:
@@ -81,7 +85,7 @@ class IDAStarSolver:
             if is_valid(board, row, col, num):
                 board[row][col] = num
                 new_f = self._f_value(board, g + 1)
-                self.steps.append(SearchStep(board, row, col, num, 'try', new_f, f_limit))
+                self.steps.append(SearchStep(board, row, col, num, 'try', detail=f"Pop node. Thử ({row},{col}) = {num}. F={new_f}, Limit={f_limit}.", new_f, f_limit))
 
                 result, exceeded = self._search(board, g + 1, f_limit)
 
@@ -92,7 +96,7 @@ class IDAStarSolver:
                     min_exceeded = exceeded
 
                 board[row][col] = 0
-                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', new_f, f_limit))
+                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"F={new_f} > Limit={f_limit} hoặc vô nghiệm. Quay lui.", new_f, f_limit))
 
         return 'failure', min_exceeded
 
@@ -107,7 +111,7 @@ class IDAStarSolver:
         while iterations < max_iterations:
             iterations += 1
             board = copy.deepcopy(self.puzzle)
-            self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration', None, f_limit))
+            self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration', detail=f"Tăng Limit mới = {f_limit}. Xóa Frontier cũ, lặp lại.", None, f_limit))
 
             result, min_exceeded = self._search(board, 0, f_limit)
 

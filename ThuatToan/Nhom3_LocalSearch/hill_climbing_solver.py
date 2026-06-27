@@ -8,13 +8,18 @@ import random
 from sudoku_utils import SIZE, count_conflicts
 
 class SearchStep:
-    def __init__(self, board, row, col1, col2, action_type, h_value):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
-        self.col1 = col1
-        self.col2 = col2
-        self.action_type = action_type  # 'accept_better' | 'restart' | 'stuck'
-        self.h_value = h_value
+        self.col = col
+        self.value = value
+        self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 class HillClimbingSolver:
     def __init__(self, puzzle, max_steps=2000, max_restarts=20):
@@ -62,7 +67,7 @@ class HillClimbingSolver:
 
             restart_count += 1
             if restart_count < self.max_restarts:
-                self.steps.append(SearchStep(result_board, -1, -1, -1, 'restart', current_h))
+                self.steps.append(SearchStep(result_board, -1, -1, -1, 'restart', detail=f"Restart với Random Board mới (H={current_h}).", current_h=current_h))
 
         stats = {'steps': total_step_count, 'restarts': restart_count}
         return None, self.steps, stats
@@ -97,9 +102,9 @@ class HillClimbingSolver:
             if best_h < current_h:
                 current = best_neighbor
                 current_h = best_h
-                self.steps.append(SearchStep(current, best_move[0], best_move[1], best_move[2], 'accept_better', current_h))
+                self.steps.append(SearchStep(current, best_move[0], best_move[1], best_move[2], 'accept_better', detail=f"Chọn neighbor tốt hơn: H={current_h}", current_h=current_h))
             else:
-                self.steps.append(SearchStep(current, -1, -1, -1, 'stuck', current_h))
+                self.steps.append(SearchStep(current, -1, -1, -1, 'stuck', detail=f"Bị kẹt tại Local Optimum (H={current_h}). Đỉnh đồi.", current_h=current_h))
                 break # Kẹt ở local optimum, cần restart
                 
         return current, current_h, step_count

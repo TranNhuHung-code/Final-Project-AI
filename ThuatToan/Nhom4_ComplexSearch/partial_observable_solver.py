@@ -48,15 +48,18 @@ from sudoku_utils import SIZE, BOX, is_valid
 
 
 class SearchStep:
-    def __init__(self, domains, observed_cell, observed_value, affected_cells,
-                 action_type, num_unknown_cells):
-        # domains: list 2D, mỗi phần tử là set() các giá trị còn khả dĩ
-        self.domains = copy.deepcopy(domains)
-        self.observed_cell = observed_cell      # (row, col) vừa được sensor quan sát
-        self.observed_value = observed_value
-        self.affected_cells = affected_cells    # các ô có domain bị thu hẹp do lan truyền
-        self.action_type = action_type          # 'observe' | 'propagate' | 'solved'
-        self.num_unknown_cells = num_unknown_cells
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
+        self.board = copy.deepcopy(board)
+        self.row = row
+        self.col = col
+        self.value = value
+        self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 
 class PartiallyObservableSolver:

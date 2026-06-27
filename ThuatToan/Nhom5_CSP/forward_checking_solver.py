@@ -44,13 +44,18 @@ from sudoku_utils import SIZE, BOX, is_valid
 
 
 class SearchStep:
-    def __init__(self, board, row, col, value, action_type, domain_wipeout_cell=None):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
         self.col = col
         self.value = value
-        self.action_type = action_type   # 'assign' | 'forward_check_fail' | 'backtrack'
-        self.domain_wipeout_cell = domain_wipeout_cell  # ô bị rỗng domain (nếu forward_check_fail)
+        self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 
 class ForwardCheckingSolver:
@@ -132,7 +137,7 @@ class ForwardCheckingSolver:
             board[row][col] = value
             del domains[var]
 
-            self.steps.append(SearchStep(board, row, col, value, 'assign'))
+            self.steps.append(SearchStep(board, row, col, value, 'assign', detail=f"CSP Forward Checking: Gán {value} vào ({row},{col}). Cập nhật miền giá trị (Domain) các biến liên quan."))
 
             removed, wipeout_var = self._forward_check(board, domains, row, col, value)
 
@@ -149,7 +154,7 @@ class ForwardCheckingSolver:
             domains[var] = set(domain_values)  # khôi phục domain gốc của var này
             board[row][col] = 0
             self.backtrack_count += 1
-            self.steps.append(SearchStep(board, row, col, 0, 'backtrack'))
+            self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"Hết lựa chọn tại ({row},{col}). Quay lui."))
 
         return False
 

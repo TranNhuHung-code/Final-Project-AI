@@ -38,14 +38,18 @@ from sudoku_utils import SIZE, BOX, count_conflicts, is_solved
 
 
 class SearchStep:
-    def __init__(self, board, row, col1, col2, action_type, h_value, temperature):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
-        self.col1 = col1
-        self.col2 = col2
-        self.action_type = action_type  # 'accept_better' | 'accept_worse' | 'reject'
-        self.h_value = h_value
-        self.temperature = temperature
+        self.col = col
+        self.value = value
+        self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 
 class SimulatedAnnealingSolver:

@@ -11,12 +11,18 @@ import heapq
 from sudoku_utils import is_valid, find_empty_cells, heuristic_min_conflicts_domain, SIZE
 
 class SearchStep:
-    def __init__(self, board, row, col, value, action_type):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
         self.col = col
         self.value = value
         self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 class AStarSolver:
     def __init__(self, puzzle):
@@ -46,7 +52,7 @@ class AStarSolver:
                 if is_valid(board, row, col, num):
                     new_board = copy.deepcopy(board)
                     new_board[row][col] = num
-                    self.steps.append(SearchStep(new_board, row, col, num, 'try'))
+                    self.steps.append(SearchStep(new_board, row, col, num, 'try', detail=f"Frontier (Priority Queue) size: {len(pq)}. Pop best node. Đánh dấu Explored. Thử ({row},{col}) = {num}."))
                     
                     new_g = g + 1
                     new_h = heuristic_min_conflicts_domain(new_board)
