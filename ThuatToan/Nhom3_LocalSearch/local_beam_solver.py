@@ -8,10 +8,18 @@ import random
 from sudoku_utils import SIZE, count_conflicts
 
 class SearchStep:
-    def __init__(self, board, action_type, h_value):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
+        self.row = row
+        self.col = col
+        self.value = value
         self.action_type = action_type
-        self.h_value = h_value
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 class LocalBeamSolver:
     def __init__(self, puzzle, k=5, max_steps=1000):
@@ -85,9 +93,9 @@ class LocalBeamSolver:
             k_states = next_k_states
             
             if new_best_h < best_h:
-                self.steps.append(SearchStep(new_best_board, 'beam_update', new_best_h))
+                self.steps.append(SearchStep(new_best_board, 'beam_update', detail=f"Beam Search: Chọn k states tốt nhất. Best H={new_best_h}", new_best_h=new_best_h))
             else:
-                self.steps.append(SearchStep(new_best_board, 'stuck', new_best_h))
+                self.steps.append(SearchStep(new_best_board, 'stuck', detail=f"Các beam kẹt tại Local Optimum (Best H={new_best_h}).", new_best_h=new_best_h))
                 break # Kẹt hoàn toàn
                 
             best_h = new_best_h

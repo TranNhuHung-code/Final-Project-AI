@@ -22,16 +22,18 @@ from sudoku_utils import is_valid, find_empty_cells, SIZE
 
 
 class SearchStep:
-    """Một bước trong quá trình tìm kiếm, dùng để phát lại (replay) trên giao diện."""
-
-    def __init__(self, board, row, col, value, action_type, depth, depth_limit):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
         self.col = col
         self.value = value
-        self.action_type = action_type   # 'try' (đang thử) hoặc 'backtrack' (quay lui)
-        self.depth = depth
-        self.depth_limit = depth_limit
+        self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 
 class IDSSolver:
@@ -75,7 +77,7 @@ class IDSSolver:
             self.nodes_expanded += 1
             if is_valid(board, row, col, num):
                 board[row][col] = num
-                self.steps.append(SearchStep(board, row, col, num, 'try',
+                self.steps.append(SearchStep(board, row, col, num, 'try', detail=f"DLS Depth={depth}. Pop từ Stack, đánh dấu Explored. Mở rộng ({row},{col})={num}.",
                                               current_depth + 1, depth_limit))
 
                 result = self._depth_limited_search(board, depth_limit - 1)
@@ -87,7 +89,7 @@ class IDSSolver:
 
                 # Quay lui (backtrack): undo nước đi vừa thử
                 board[row][col] = 0
-                self.steps.append(SearchStep(board, row, col, 0, 'backtrack',
+                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"DLS Depth={depth}. Nhánh vô nghiệm hoặc quá sâu, Quay lui (Backtrack).",
                                               current_depth, depth_limit))
 
         return 'cutoff' if cutoff_occurred else 'failure'
@@ -106,7 +108,7 @@ class IDSSolver:
 
         for depth_limit in range(1, max_depth_limit + 1):
             board = copy.deepcopy(self.puzzle)
-            self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration',
+            self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration', detail=f"Bắt đầu Iteration mới với Max Depth={depth_limit}. Reset Frontier.",
                                           0, depth_limit))
 
             result = self._depth_limited_search(board, depth_limit)

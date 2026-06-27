@@ -8,12 +8,18 @@ import random
 from sudoku_utils import SIZE, BOX, count_conflicts
 
 class SearchStep:
-    def __init__(self, board, row, col, value, action_type):
+    def __init__(self, board, row, col, value, action_type, detail="", **kwargs):
+        import copy
         self.board = copy.deepcopy(board)
         self.row = row
         self.col = col
         self.value = value
         self.action_type = action_type
+        self.detail = detail
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 
 class MinConflictsSolver:
     def __init__(self, puzzle, max_steps=5000):
@@ -56,7 +62,7 @@ class MinConflictsSolver:
 
     def solve(self):
         current = self._init_random_board()
-        self.steps.append(SearchStep(current, -1, -1, 0, 'new_iteration'))
+        self.steps.append(SearchStep(current, -1, -1, 0, 'new_iteration', detail=f"Khởi tạo bảng ngẫu nhiên. Số lỗi hiện tại: {self.get_total_conflicts(current)}"))
         
         for step_idx in range(self.max_steps):
             conflicted = self._get_conflicted_variables(current)
@@ -81,6 +87,6 @@ class MinConflictsSolver:
             best_v = random.choice(best_vals)
             current[r][c] = best_v
             
-            self.steps.append(SearchStep(current, r, c, best_v, 'try'))
+            self.steps.append(SearchStep(current, r, c, best_v, 'try', detail=f"Min-Conflicts: Chọn biến conflict tại ({r},{c}). Thay đổi giá trị để giảm lỗi."))
             
         return None, self.steps, {'steps': self.max_steps}
