@@ -93,9 +93,9 @@ class LocalBeamSolver:
             k_states = next_k_states
             
             if new_best_h < best_h:
-                self.steps.append(SearchStep(new_best_board, 'beam_update', detail=f"Beam Search: Chọn k states tốt nhất. Best H={new_best_h}", new_best_h=new_best_h))
+                self.steps.append(SearchStep(new_best_board, -1, -1, -1, 'beam_update', detail=f"Beam Search: Chọn k states tốt nhất. Best H={new_best_h}", new_best_h=new_best_h))
             else:
-                self.steps.append(SearchStep(new_best_board, 'stuck', detail=f"Các beam kẹt tại Local Optimum (Best H={new_best_h}).", new_best_h=new_best_h))
+                self.steps.append(SearchStep(new_best_board, -1, -1, -1, 'stuck', detail=f"Các beam kẹt tại Local Optimum (Best H={new_best_h}).", new_best_h=new_best_h))
                 break # Kẹt hoàn toàn
                 
             best_h = new_best_h

@@ -85,7 +85,7 @@ class IDAStarSolver:
             if is_valid(board, row, col, num):
                 board[row][col] = num
                 new_f = self._f_value(board, g + 1)
-                self.steps.append(SearchStep(board, row, col, num, 'try', detail=f"Pop node. Thử ({row},{col}) = {num}. F={new_f}, Limit={f_limit}.", new_f, f_limit))
+                self.steps.append(SearchStep(board, row, col, num, 'try', detail=f"Pop node. Thử ({row},{col}) = {num}. F={new_f}, Limit={f_limit}.", new_f=new_f, f_limit=f_limit))
 
                 result, exceeded = self._search(board, g + 1, f_limit)
 
@@ -96,7 +96,7 @@ class IDAStarSolver:
                     min_exceeded = exceeded
 
                 board[row][col] = 0
-                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"F={new_f} > Limit={f_limit} hoặc vô nghiệm. Quay lui.", new_f, f_limit))
+                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"F={new_f} > Limit={f_limit} hoặc vô nghiệm. Quay lui.", new_f=new_f, f_limit=f_limit))
 
         return 'failure', min_exceeded
 
@@ -111,7 +111,7 @@ class IDAStarSolver:
         while iterations < max_iterations:
             iterations += 1
             board = copy.deepcopy(self.puzzle)
-            self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration', detail=f"Tăng Limit mới = {f_limit}. Xóa Frontier cũ, lặp lại.", None, f_limit))
+            self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration', detail=f"Tăng Limit mới = {f_limit}. Xóa Frontier cũ, lặp lại.", new_f=None, f_limit=f_limit))
 
             result, min_exceeded = self._search(board, 0, f_limit)
 

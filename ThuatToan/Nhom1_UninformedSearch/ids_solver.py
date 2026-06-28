@@ -77,8 +77,8 @@ class IDSSolver:
             self.nodes_expanded += 1
             if is_valid(board, row, col, num):
                 board[row][col] = num
-                self.steps.append(SearchStep(board, row, col, num, 'try', detail=f"DLS Depth={depth}. Pop từ Stack, đánh dấu Explored. Mở rộng ({row},{col})={num}.",
-                                              current_depth + 1, depth_limit))
+                self.steps.append(SearchStep(board, row, col, num, 'try', detail=f"DLS Depth={current_depth}. Pop từ Stack, đánh dấu Explored. Mở rộng ({row},{col})={num}.",
+                                              current_depth=current_depth + 1, depth_limit=depth_limit))
 
                 result = self._depth_limited_search(board, depth_limit - 1)
 
@@ -89,8 +89,8 @@ class IDSSolver:
 
                 # Quay lui (backtrack): undo nước đi vừa thử
                 board[row][col] = 0
-                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"DLS Depth={depth}. Nhánh vô nghiệm hoặc quá sâu, Quay lui (Backtrack).",
-                                              current_depth, depth_limit))
+                self.steps.append(SearchStep(board, row, col, 0, 'backtrack', detail=f"DLS Depth={current_depth}. Nhánh vô nghiệm hoặc quá sâu, Quay lui (Backtrack).",
+                                              current_depth=current_depth, depth_limit=depth_limit))
 
         return 'cutoff' if cutoff_occurred else 'failure'
 
@@ -109,7 +109,7 @@ class IDSSolver:
         for depth_limit in range(1, max_depth_limit + 1):
             board = copy.deepcopy(self.puzzle)
             self.steps.append(SearchStep(board, -1, -1, 0, 'new_iteration', detail=f"Bắt đầu Iteration mới với Max Depth={depth_limit}. Reset Frontier.",
-                                          0, depth_limit))
+                                          current_depth=0, depth_limit=depth_limit))
 
             result = self._depth_limited_search(board, depth_limit)
 

@@ -364,29 +364,27 @@ class BaseSudokuApp:
         self.btn_new.config(state="normal")
         self.btn_stop.config(state="disabled")
 
-        if self.solution_board is None:
-            self._log("Không tìm thấy lời giải.", "error")
-            messagebox.showwarning("Không tìm thấy lời giải", f"{self.algo_name} không tìm được lời giải hợp lệ cho đề này.")
-            self.info_label.config(text="Không tìm được lời giải.")
-            return
-
         total_steps = len(self.steps)
+        if self.solution_board is None:
+            self._log("Không tìm thấy lời giải. (Bị kẹt cục bộ / Không thể giải tiếp)", "error")
+            self.info_label.config(text="Bị kẹt! Bạn có thể phát lại để xem quá trình chạy sai hướng.")
+        else:
+            nodes = self.stats.get('nodes_expanded', self.stats.get('nodes', 0))
+            time_sec = self.stats.get('elapsed_seconds', 0)
+            info_text = f"Đã giải xong! Nodes: {nodes:,} | Thời gian: {time_sec}s | Số bước ghi nhận: {total_steps:,}"
+            self.info_label.config(text=info_text)
+            self._log(f"Hoàn thành trong {time_sec}s với {nodes:,} nodes được mở rộng.", "success")
+            self._log("Bạn có thể bấm 'Phát lại', kéo thanh tiến độ hoặc bấm < > để xem lại.", "info")
+
         if total_steps > 0:
             self.progress_scale.config(to=total_steps, state="normal")
+            self.btn_play.config(state="normal")
+            self.btn_skip.config(state="normal")
         else:
             self.progress_scale.config(to=100, state="disabled")
+            if self.solution_board is None:
+                messagebox.showwarning("Không tìm thấy lời giải", f"{self.algo_name} không tìm được lời giải hợp lệ và không có bước chạy nào.")
         self.progress_scale.set(0)
-        
-        self.btn_play.config(state="normal")
-        self.btn_skip.config(state="normal")
-
-        nodes = self.stats.get('nodes_expanded', self.stats.get('nodes', 0))
-        time_sec = self.stats.get('elapsed_seconds', 0)
-        
-        info_text = f"Đã giải xong! Nodes: {nodes:,} | Thời gian: {time_sec}s | Số bước ghi nhận: {total_steps:,}"
-        self.info_label.config(text=info_text)
-        self._log(f"Hoàn thành trong {time_sec}s với {nodes:,} nodes được mở rộng.", "success")
-        self._log("Bạn có thể bấm 'Phát lại', kéo thanh tiến độ hoặc bấm < > để xem lại.", "info")
 
     def _on_speed_change(self, value):
         self.play_speed_ms = int(value)
@@ -475,6 +473,14 @@ class BaseSudokuApp:
         elif action_type == 'info':
              self._render_board(step.board)
              self._log(f"Thông tin: {getattr(step, 'value', '')}", "info")
+        elif action_type in ('accept_better', 'accept_worse', 'reject'):
+            c1 = getattr(step, 'col1', step.col)
+            c2 = getattr(step, 'col2', step.value)
+            self._render_board(step.board, highlight=((step.row, c1), (step.row, c2), action_type))
+            self._log(f"{action_type.upper()}: Hoán đổi ({step.row+1}, {c1+1}) và ({step.row+1}, {c2+1})", "try" if action_type != 'reject' else "error")
+        elif action_type in ('restart', 'stuck', 'beam_update'):
+            self._render_board(step.board, highlight=(step.row, step.col, action_type))
+            self._log(f"{action_type.upper()}: {getattr(step, 'detail', '')}", "system")
         else:
             self._render_board(step.board, highlight=(step.row, step.col, action_type))
             if action_type in ('try', 'assign'):
@@ -501,8 +507,14 @@ class BaseSudokuApp:
         self.btn_edit.config(state="normal")
         
         if self.progress_scale.get() == len(self.steps):
-            self._render_board(self.solution_board)
-            self._log("Kết thúc phát lại.", "success")
+            if self.solution_board:
+                self._render_board(self.solution_board)
+                self._log("Kết thúc phát lại.", "success")
+            else:
+                last_board = self.steps[-1].board if self.steps else self.puzzle
+                self._render_board(last_board, highlight='failed')
+                self._log("Phát lại hoàn tất. Thuật toán bị kẹt cục bộ/ngõ cụt tại đây.", "error")
+                messagebox.showwarning("Kẹt cục bộ", "Thuật toán đã bị kẹt cục bộ / không thể giải được và đã dừng lại.")
 
     # ================= HELPERS =================
     
@@ -545,20 +557,46 @@ class BaseSudokuApp:
                     label.config(bg=COLOR_SELECTED_BG, fg=TXT_B)
                     continue
 
-                # Playback highlights
-                if highlight is not None and highlight[0] == r and highlight[1] == c:
-                    action_type = highlight[2]
-                    if action_type in ('try', 'assign'):
-                        label.config(bg=COLOR_TRY_BG, fg=COLOR_TRY_TEXT)
-                    elif action_type == 'backtrack':
-                        label.config(bg=COLOR_BACKTRACK_BG, fg=COLOR_BACKTRACK_TEXT)
-                    elif action_type == 'forward_check_fail':
-                        label.config(bg="#FF325A", fg="#FFFFFF", text="✕")
-                    elif action_type == 'new_iteration':
-                        label.config(bg=COLOR_NEW_ITER_FLASH, fg=COLOR_SOLVED_TEXT)
-                    elif action_type == 'swap':
-                        label.config(bg=ACCENT, fg="black")
+                if highlight == 'failed':
+                    if is_original_clue:
+                        label.config(bg=COLOR_CLUE_BG, fg=COLOR_CLUE_TEXT)
+                    else:
+                        label.config(bg="#FF325A", fg="#FFFFFF") # RED
                     continue
+
+                # Playback highlights
+                if highlight is not None and highlight != 'failed':
+                    is_highlighted = False
+                    action_t = None
+                    if isinstance(highlight[0], tuple):
+                        cells = highlight[:-1]
+                        if (r, c) in cells:
+                            is_highlighted = True
+                            action_t = highlight[-1]
+                    elif highlight[0] == r and highlight[1] == c:
+                        is_highlighted = True
+                        action_t = highlight[2]
+                        
+                    if is_highlighted:
+                        if action_t in ('try', 'assign'):
+                            label.config(bg=COLOR_TRY_BG, fg=COLOR_TRY_TEXT)
+                        elif action_t == 'backtrack':
+                            label.config(bg=COLOR_BACKTRACK_BG, fg=COLOR_BACKTRACK_TEXT)
+                        elif action_t == 'forward_check_fail':
+                            label.config(bg="#FF325A", fg="#FFFFFF", text="✕")
+                        elif action_t == 'new_iteration':
+                            label.config(bg=COLOR_NEW_ITER_FLASH, fg=COLOR_SOLVED_TEXT)
+                        elif action_t in ('swap', 'accept_better', 'beam_update'):
+                            label.config(bg="#00E473", fg="black")
+                        elif action_t == 'accept_worse':
+                            label.config(bg="#FFBE00", fg="black")
+                        elif action_t == 'reject':
+                            label.config(bg="#FF325A", fg="white")
+                        elif action_t == 'restart':
+                            label.config(bg="#00C6FF", fg="black")
+                        elif action_t == 'stuck':
+                            label.config(bg="#FF00FF", fg="white")
+                        continue
 
                 # Normal state
                 if is_original_clue:
