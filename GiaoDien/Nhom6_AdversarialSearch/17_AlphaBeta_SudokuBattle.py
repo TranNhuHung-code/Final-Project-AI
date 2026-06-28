@@ -5,7 +5,7 @@
 ĐỒ ÁN CUỐI KỲ - MÔN TRÍ TUỆ NHÂN TẠO
 Nhóm thuật toán: ADVERSARIAL SEARCH (Tìm kiếm đối kháng)
 Thuật toán trình bày: Alpha-Beta Pruning
-Bài toán áp dụng: "SUDOKU BATTLE" — biến thể 2 người chơi (Người vs Agent)
+Bài toán áp dụng: "SUDOKU BATTLE" (Luật Ép Ô)
 """
 
 import sys
@@ -18,11 +18,9 @@ from tkinter import ttk, messagebox
 import time
 import threading
 
-from sudoku_utils import SIZE, BOX, generate_puzzle, _fill_full_board
+from sudoku_utils import SIZE, BOX, generate_puzzle, _fill_full_board, is_valid
 from ThuatToan.Nhom6_AdversarialSearch.alpha_beta_solver import AlphaBetaSudokuBattle
 
-
-# ===================== CẤU HÌNH MÀU SẮC (Cyberpunk Theme) =====================
 BG = "#080816"              
 CARD = "#141630"            
 ACCENT = "#00C6FF"          
@@ -37,16 +35,15 @@ COLOR_P1_BG = "#00E473"
 COLOR_P1_TEXT = "#000000"
 COLOR_P2_BG = "#FF325A"     
 COLOR_P2_TEXT = "#FFFFFF"
-COLOR_WIN_FLASH = "#00B9FF"
-COLOR_AGENT_CORRECT_TEXT = "#1d4ed8"
-COLOR_AGENT_WRONG_BG = "#ffe3b3"
-COLOR_AGENT_WRONG_TEXT = "#8a4b00"
+
+COLOR_TARGET_BG = "#FFD700"  
+COLOR_TARGET_TEXT = "#000000"
+
 COLOR_SELECTED_BG = "#2c3e50"
 COLOR_AGENT_CORRECT_BG = "#d1fae5"
 COLOR_HUMAN_CORRECT_BG = "#d1fae5"
-COLOR_HUMAN_WRONG_BG = "#ffe3b3"
-COLOR_HUMAN_WRONG_TEXT = "#8a4b00"
 COLOR_HUMAN_CORRECT_TEXT = "#1d4ed8"
+COLOR_AGENT_CORRECT_TEXT = "#1d4ed8"
 
 
 FONT_CELL = ("Segoe UI", 16, "bold")
@@ -58,7 +55,7 @@ FONT_SCORE = ("Segoe UI", 14, "bold")
 class AlphaBetaBattleApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Sudoku Battle - Alpha-Beta (Người vs Agent)")
+        self.root.title("Sudoku Battle - Alpha-Beta (Luật Ép Ô)")
         self.root.configure(bg=BG)
         self.root.minsize(1050, 750)
 
@@ -70,15 +67,14 @@ class AlphaBetaBattleApp:
         
         self.root.bind("<Key>", self.on_key_press)
 
-    # ------------------------------------------------------------------
     def _build_ui(self):
-        title = tk.Label(self.root, text="Sudoku Battle: You vs Alpha-Beta AI",
+        title = tk.Label(self.root, text="Sudoku Battle: You vs Alpha-Beta AI (Luật Ép Ô)",
                           font=FONT_TITLE, bg=BG, fg=ACCENT)
         title.pack(pady=(12, 4))
 
         subtitle = tk.Label(
             self.root,
-            text="Nhóm 6: Adversarial Search   |   Bạn đi trước (Màu Xanh), AI đi sau (Màu Đỏ)",
+            text="Nhóm 6: Adversarial Search   |   Điền đúng & Chỉ định ô để ép đối thủ. Mắc 5 lỗi là Thua!",
             font=FONT_LABEL, bg=BG, fg=TXT_D
         )
         subtitle.pack(pady=(0, 10))
@@ -86,17 +82,16 @@ class AlphaBetaBattleApp:
         main_frame = tk.Frame(self.root, bg=BG)
         main_frame.pack(padx=12, pady=4, fill="both", expand=True)
 
-        # ----- Khung bàn cờ (bên trái) -----
         left_frame = tk.Frame(main_frame, bg=BG)
         left_frame.grid(row=0, column=0, padx=(0, 16), sticky="n")
 
         score_frame = tk.Frame(left_frame, bg=CARD, highlightbackground=ACCENT, highlightthickness=1)
         score_frame.pack(pady=(0, 10), padx=20, fill="x")
 
-        self.human_score_label = tk.Label(score_frame, text="👤 Người: 0", font=FONT_TITLE, bg=CARD, fg=COLOR_P1_BG)
+        self.human_score_label = tk.Label(score_frame, text="👤 Lỗi Người: 0/5", font=FONT_TITLE, bg=CARD, fg=COLOR_P1_BG)
         self.human_score_label.pack(side="left", padx=20, pady=10)
 
-        self.agent_score_label = tk.Label(score_frame, text="🤖 Agent: 0", font=FONT_TITLE, bg=CARD, fg=COLOR_P2_BG)
+        self.agent_score_label = tk.Label(score_frame, text="🤖 Lỗi Agent: 0/5", font=FONT_TITLE, bg=CARD, fg=COLOR_P2_BG)
         self.agent_score_label.pack(side="right", padx=20, pady=10)
 
         grid_frame = tk.Frame(left_frame, bg="#2A2D54", bd=2)
@@ -119,7 +114,6 @@ class AlphaBetaBattleApp:
                 cell.bind("<Button-1>", lambda e, rr=r, cc=c: self.on_cell_click(rr, cc))
                 self.cell_labels[r][c] = cell
 
-        # ----- Khung Controls Mới -----
         controls_frame = tk.Frame(left_frame, bg=BG)
         controls_frame.pack(pady=4)
 
@@ -136,7 +130,7 @@ class AlphaBetaBattleApp:
                                        font=FONT_LABEL, bg="#9D4EDD", fg=TXT_B, activebackground="#7B2CBF", relief="flat", padx=6, pady=2)
         self.btn_edit.pack(side="left", padx=4)
 
-        self.btn_undo = tk.Button(controls_frame, text="↶ Lùi nước", command=self.undo_move,
+        self.btn_undo = tk.Button(controls_frame, text="↶ Lùi nước", state="disabled",
                                        font=FONT_LABEL, bg=TXT_D, fg=TXT_B, activebackground="#4B5563", relief="flat", padx=6, pady=2)
         self.btn_undo.pack(side="left", padx=4)
 
@@ -144,35 +138,54 @@ class AlphaBetaBattleApp:
                                        font=FONT_LABEL, bg="#FF325A", fg=TXT_B, activebackground="#CC2848", relief="flat", padx=6, pady=2)
         self.btn_stop.pack(side="left", padx=4)
 
-        self.info_label = tk.Label(left_frame, text="Lượt của Bạn! Click chọn 1 ô trống, gõ phím số (1-9) để điền.",
+        self.info_label = tk.Label(left_frame, text="Trận mới! Bạn đi trước. Hãy click chọn 1 ô trống để ép AI giải.",
                                     font=FONT_LABEL, bg=BG, fg=TXT_B, justify="left", wraplength=480)
         self.info_label.pack(pady=(12, 4))
 
-        # ----- Khung log suy luận của Agent (bên phải) -----
         right_frame = tk.Frame(main_frame, bg="#111827", bd=1, relief="solid")
         right_frame.grid(row=0, column=1, sticky="nsew")
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(0, weight=1)
 
-        tk.Label(right_frame, text="🧠 Log hệ thống & Suy luận",
-                 font=("Segoe UI", 12, "bold"), bg="#111827", fg=TXT_B).pack(pady=(8, 4), padx=10)
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("TNotebook", background="#111827", borderwidth=0)
+        style.configure("TNotebook.Tab", background="#2c3e50", foreground=TXT_B, padding=[10, 5])
+        style.map("TNotebook.Tab", background=[("selected", "#00E473")], foreground=[("selected", "black")])
 
-        self.log_text = tk.Text(right_frame, bg="#0b0f14", fg=ACCENT,
+        self.notebook = ttk.Notebook(right_frame)
+        self.notebook.pack(padx=10, pady=(10, 10), fill="both", expand=True)
+
+        tab_log = tk.Frame(self.notebook, bg="#0b0f14")
+        self.notebook.add(tab_log, text="📝 Log Lượt Chơi")
+        
+        self.log_text = tk.Text(tab_log, bg="#0b0f14", fg=ACCENT,
                                  font=("Consolas", 10), wrap="word", state="disabled")
-        self.log_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+        self.log_text.pack(fill="both", expand=True)
 
-    # ------------------------------------------------------------------
+        tab_tree = tk.Frame(self.notebook, bg="#0b0f14")
+        self.notebook.add(tab_tree, text="🌳 Cây Suy Luận AI")
+        
+        self.tree_log_text = tk.Text(tab_tree, bg="#0b0f14", fg="#00C6FF",
+                                      font=("Consolas", 10), wrap="word", state="disabled")
+        self.tree_log_text.pack(fill="both", expand=True)
+
     def _log(self, text):
         self.log_text.config(state="normal")
         self.log_text.insert("end", text + "\n")
         self.log_text.see("end")
         self.log_text.config(state="disabled")
 
-    def _update_score_label(self):
-        self.human_score_label.config(text=f"👤 Người: {self.game.human_score}")
-        self.agent_score_label.config(text=f"🤖 Agent: {self.game.agent_score}")
+    def _log_tree(self, text):
+        self.tree_log_text.config(state="normal")
+        self.tree_log_text.insert("end", text + "\n")
+        self.tree_log_text.see("end")
+        self.tree_log_text.config(state="disabled")
 
-    # ------------------------------------------------------------------
+    def _update_score_label(self):
+        self.human_score_label.config(text=f"👤 Lỗi Người: {self.game.human_mistakes}/5")
+        self.agent_score_label.config(text=f"🤖 Lỗi Agent: {self.game.agent_mistakes}/5")
+
     def on_new_game_click(self):
         if getattr(self, 'edit_mode', False): return
         diff_map = {"Dễ": 40, "Trung bình": 30, "Khó": 20}
@@ -183,18 +196,23 @@ class AlphaBetaBattleApp:
         self.log_text.config(state="normal")
         self.log_text.delete("1.0", "end")
         self.log_text.config(state="disabled")
+        self.tree_log_text.config(state="normal")
+        self.tree_log_text.delete("1.0", "end")
+        self.tree_log_text.config(state="disabled")
         self._log(f"[HỆ THỐNG] Đã tạo trận mới (Độ khó: {self.diff_var.get()})")
         
     def _start_game_with_puzzle(self):
-        self.game = AlphaBetaSudokuBattle(self.puzzle, self.real_solution, search_depth=3, candidate_cells_per_turn=6)
+        self.game = AlphaBetaSudokuBattle(self.puzzle, self.real_solution, search_depth=3)
         self.moves_history = []
         self.selected_cell = None
-        self.is_human_turn = True
+        self.target_cell = None
+        self.phase = "HUMAN_CHOOSE_TARGET" 
         self.is_agent_thinking = False
         self.game_over = False
+        
         self._render_board()
         self._update_score_label()
-        self.info_label.config(text="Trận mới! Lượt của Bạn. Click chọn 1 ô trống, gõ phím số (1-9) để điền.")
+        self.info_label.config(text="Trận mới! Bạn đi trước. Hãy click chọn 1 ô trống để ép AI giải.")
 
     def toggle_edit_mode(self):
         if getattr(self, 'is_agent_thinking', False): return
@@ -203,13 +221,11 @@ class AlphaBetaBattleApp:
             self.edit_mode = True
             self.btn_edit.config(text="✓ Xác nhận đề", bg="#00E473", fg="black")
             self.btn_new_game.config(state="disabled")
-            self.btn_confirm.config(state="disabled")
-            self.btn_undo.config(state="disabled")
             
-            # Clear board
             self.puzzle = [[0]*9 for _ in range(9)]
             self.moves_history = []
             self.selected_cell = None
+            self.target_cell = None
             self.game_over = True 
             self._render_board()
             self.info_label.config(text="Chế độ nhập đề. Click vào ô và gõ phím số (1-9). Bấm Xác nhận khi xong.")
@@ -224,37 +240,10 @@ class AlphaBetaBattleApp:
             self.edit_mode = False
             self.btn_edit.config(text="Tự nhập đề", bg="#9D4EDD", fg=TXT_B)
             self.btn_new_game.config(state="normal")
-            self.btn_confirm.config(state="normal")
-            self.btn_undo.config(state="normal")
             
             self._start_game_with_puzzle()
             self._log("\n[HỆ THỐNG] Đã xác nhận đề tự nhập. Trận đấu bắt đầu!")
 
-    def undo_move(self):
-        if self.is_agent_thinking or self.edit_mode: return
-        if not self.moves_history: return
-        
-        if len(self.moves_history) >= 2:
-            self.moves_history = self.moves_history[:-2]
-        else:
-            self.moves_history = []
-            
-        self.game = AlphaBetaSudokuBattle(self.puzzle, self.real_solution, search_depth=3, candidate_cells_per_turn=6)
-        for m in self.moves_history:
-            if m['by_agent']:
-                self.game.agent_move(m['row'], m['col'], m['val'])
-            else:
-                self.game.human_move(m['row'], m['col'], m['val'])
-                
-        self.selected_cell = None
-        self.game_over = False
-        self.is_human_turn = True
-        self._render_board()
-        self._update_score_label()
-        self.info_label.config(text="Đã lùi nước. Lượt của Bạn!")
-        self._log("\n[HỆ THỐNG] Đã lùi lại nước đi trước đó.\n")
-
-    # ------------------------------------------------------------------
     def _render_board(self):
         for r in range(SIZE):
             for c in range(SIZE):
@@ -266,25 +255,23 @@ class AlphaBetaBattleApp:
 
                 if self.edit_mode and self.selected_cell == (r, c):
                     label.config(bg=COLOR_SELECTED_BG, fg=TXT_B)
-                elif not self.edit_mode and self.selected_cell == (r, c):
-                    label.config(bg=COLOR_SELECTED_BG, fg=COLOR_CLUE_TEXT)
+                elif not self.edit_mode and self.target_cell == (r, c):
+                    label.config(bg=COLOR_TARGET_BG, fg=COLOR_TARGET_TEXT)
+                elif not self.edit_mode and self.selected_cell == (r, c) and self.phase == "HUMAN_CHOOSE_TARGET":
+                    label.config(bg=COLOR_SELECTED_BG, fg=TXT_B)
                 elif is_original_clue:
                     label.config(bg=COLOR_CLUE_BG, fg=COLOR_CLUE_TEXT)
                 elif val == 0:
                     label.config(bg=COLOR_EMPTY_BG, fg=COLOR_CLUE_TEXT)
                 else:
                     if not self.edit_mode:
-                        # Find if it was human or agent
-                        bg = COLOR_EMPTY_BG
-                        fg = TXT_B
+                        bg = COLOR_HUMAN_CORRECT_BG
+                        fg = COLOR_HUMAN_CORRECT_TEXT
                         for m in self.moves_history:
                             if m['row'] == r and m['col'] == c:
                                 if m['by_agent']:
-                                    bg = COLOR_AGENT_CORRECT_BG if m['correct'] else COLOR_AGENT_WRONG_BG
-                                    fg = COLOR_AGENT_CORRECT_TEXT if m['correct'] else COLOR_AGENT_WRONG_TEXT
-                                else:
-                                    bg = COLOR_HUMAN_CORRECT_BG if m['correct'] else COLOR_HUMAN_WRONG_BG
-                                    fg = COLOR_HUMAN_CORRECT_TEXT if m['correct'] else COLOR_HUMAN_WRONG_TEXT
+                                    bg = COLOR_AGENT_CORRECT_BG
+                                    fg = COLOR_AGENT_CORRECT_TEXT
                         label.config(bg=bg, fg=fg)
 
     def on_cell_click(self, row, col):
@@ -293,45 +280,75 @@ class AlphaBetaBattleApp:
             self._render_board()
             return
             
-        if self.game_over or not self.is_human_turn or self.is_agent_thinking:
+        if self.game_over or self.is_agent_thinking:
             return
+            
         if self.game.board[row][col] != 0:
             return  
-        self.selected_cell = (row, col)
-        self._render_board()
+            
+        if self.phase == "HUMAN_CHOOSE_TARGET":
+            self.selected_cell = (row, col)
+            self._render_board()
+            self.target_cell = (row, col)
+            self.selected_cell = None
+            self.phase = "AGENT_TURN"
+            self.info_label.config(text=f"Bạn đã ép AI giải ô ({row+1}, {col+1}). Đang chờ AI...")
+            self._render_board()
+            self._log(f"👤 Bạn đã chọn ô ({row+1}, {col+1}) ép AI giải.")
+            self.root.after(300, self._agent_turn)
+            
+        elif self.phase == "HUMAN_FILL":
+            if (row, col) != self.target_cell:
+                messagebox.showwarning("Nhắc nhở", "Bạn PHẢI giải ô đang bị tô vàng (ô bị AI ép)!")
+                return
+            self.selected_cell = (row, col)
+            self._render_board()
 
     def on_key_press(self, event):
-        if not self.selected_cell: return
-        r, c = self.selected_cell
+        if not self.selected_cell and not self.target_cell: return
 
         if self.edit_mode:
-            if event.char in "123456789":
+            r, c = self.selected_cell
+            if event.char and event.char in "123456789":
                 self.puzzle[r][c] = int(event.char)
                 self._render_board()
             elif event.keysym in ("BackSpace", "Delete", "0"):
                 self.puzzle[r][c] = 0
                 self._render_board()
         else:
-            if self.game_over or not self.is_human_turn or self.is_agent_thinking:
+            if self.game_over or self.is_agent_thinking or self.phase != "HUMAN_FILL":
                 return
-            if event.char in "123456789":
+                
+            r, c = self.target_cell
+            if event.char and event.char in "123456789":
                 value = int(event.char)
                 is_correct = self.game.human_move(r, c, value)
-                self.moves_history.append({'row': r, 'col': c, 'val': value, 'by_agent': False, 'correct': is_correct})
                 
-                self._log(f"👤 Người điền {value} tại (hàng {r+1}, cột {c+1}) -> {'ĐÚNG ✓' if is_correct else 'SAI ✗'}")
-
-                self.selected_cell = None
-                self._render_board()
-                self._update_score_label()
-
-                if self.game.is_game_over():
-                    self._end_game()
+                if not is_correct:
+                    self._log(f"👤 Người điền {value} tại ({r+1}, {c+1}) -> SAI ✗ (Lỗi: {self.game.human_mistakes}/5)")
+                    self._update_score_label()
+                    if self.game.is_game_over():
+                        self._end_game()
+                    else:
+                        valid_cands = [str(v) for v in range(1, 10) if is_valid(self.game.board, r, c, v)]
+                        hint = f"Các số hợp lệ theo luật ở ô này: {', '.join(valid_cands)}" if valid_cands else "Không có số hợp lệ"
+                        self._log(f"   💡 GỢI Ý: {hint}")
+                        messagebox.showerror("Sai rồi", f"Số {value} KHÔNG ĐÚNG! Bạn bị ghi nhận 1 lỗi.\n\n💡 Gợi ý: {hint}")
                     return
+                else:
+                    self.moves_history.append({'row': r, 'col': c, 'val': value, 'by_agent': False})
+                    self._log(f"👤 Người điền {value} tại ({r+1}, {c+1}) -> ĐÚNG ✓")
+                    self.target_cell = None
+                    self.selected_cell = None
+                    self._render_board()
+                    self._update_score_label()
 
-                self.is_human_turn = False
-                self.info_label.config(text="Lượt của Agent... Agent đang suy luận.")
-                self.root.after(300, self._agent_turn)
+                    if self.game.is_game_over():
+                        self._end_game()
+                        return
+
+                    self.phase = "HUMAN_CHOOSE_TARGET"
+                    self.info_label.config(text="Tuyệt! Giờ hãy click chọn 1 ô trống bất kỳ để ép AI giải.")
 
     def on_stop_click(self):
         if not getattr(self, 'is_agent_thinking', False): return
@@ -341,9 +358,9 @@ class AlphaBetaBattleApp:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(self.agent_thread.ident), ctypes.py_object(SystemExit))
         
         self.is_agent_thinking = False
-        self.is_human_turn = True
+        self.phase = "HUMAN_CHOOSE_TARGET"
         self.btn_stop.config(state="disabled")
-        self.info_label.config(text="Đã dừng Agent. Lượt của Bạn!")
+        self.info_label.config(text="Đã dừng Agent. Hãy chọn ô ép AI.")
         self._log("Agent đã bị người dùng dừng lại.", "error")
 
     def _agent_turn(self):
@@ -352,41 +369,78 @@ class AlphaBetaBattleApp:
 
         def run_agent():
             t0 = time.time()
-            row, col, value, trace = self.game.agent_choose_move()
+            
+            r, c = self.target_cell
+            val = self.game.real_solution[r][c]
+            self.game.agent_move(r, c, val)
+            
+            if self.game.is_game_over():
+                self.root.after(0, lambda: self._on_agent_move_done(r, c, val, None, None, [], 0, t1 - t0))
+                return
+                
+            next_r, next_c, trace, nodes = self.game.agent_choose_target()
             t1 = time.time()
-            is_correct = self.game.agent_move(row, col, value)
-            self.root.after(0, lambda: self._on_agent_move_done(row, col, value, is_correct, trace, t1 - t0))
+            
+            self.root.after(0, lambda: self._on_agent_move_done(r, c, val, next_r, next_c, trace, nodes, t1 - t0))
 
         self.agent_thread = threading.Thread(target=run_agent, daemon=True)
         self.agent_thread.start()
 
-    def _on_agent_move_done(self, row, col, value, is_correct, trace, elapsed):
+    def _on_agent_move_done(self, solved_r, solved_c, solved_val, next_r, next_c, trace, nodes, elapsed):
         self.btn_stop.config(state="disabled")
-        self.moves_history.append({'row': row, 'col': col, 'val': value, 'by_agent': True, 'correct': is_correct})
+        
+        self.moves_history.append({'row': solved_r, 'col': solved_c, 'val': solved_val, 'by_agent': True})
+        
+        self._log(f"🤖 Agent (Alpha-Beta, depth={self.game.search_depth}) suy luận trong {elapsed:.3f}s:")
+        self._log(f"   ➜ Agent ĐÃ GIẢI ĐÚNG ô ({solved_r+1}, {solved_c+1}) = {solved_val}")
+
+        if next_r is not None:
+            self._log_tree("==================================================")
+            self._log_tree(f"🤖 ĐẾN LƯỢT AI CHỌN Ô CHO BẠN")
+            self._log_tree(f"- Thuật toán: Alpha-Beta Pruning")
+            self._log_tree(f"- Độ sâu tìm kiếm (Depth): {self.game.search_depth}")
+            self._log_tree(f"- Số node đã duyệt: {nodes}")
+            self._log_tree(f"- Thời gian chạy: {elapsed:.3f}s")
+            self._log_tree(f"- Chi tiết đánh giá ứng viên:")
+            for t in trace:
+                self._log_tree(f"  + Ô ({t['row']+1}, {t['col']+1}): Độ khó = {t.get('hardness', 0)} | Điểm = {t['score']} | Alpha = {t.get('alpha', '')} | Beta = {t.get('beta', '')}")
+            self._log_tree(f"=> QUYẾT ĐỊNH: Ép bạn giải ô ({next_r+1}, {next_c+1})")
+            self._log_tree("==================================================\n")
+        
+        if self.game.is_game_over() or next_r is None:
+            self.target_cell = None
+            self._render_board()
+            self._update_score_label()
+            self._end_game()
+            self.is_agent_thinking = False
+            return
+            
+        self._log(f"   ➜ Agent CHỈ ĐỊNH ô ({next_r+1}, {next_c+1}) cho bạn!\n")
+        
+        self.target_cell = (next_r, next_c)
+        self.phase = "HUMAN_FILL"
+        self.is_agent_thinking = False
+        
         self._render_board()
         self._update_score_label()
-
-        self._log(f"🤖 Agent (Alpha-Beta, độ sâu={self.game.search_depth}) suy luận trong {elapsed:.3f}s:")
-        self._log(f"   ➜ Agent CHỌN: điền {value} tại (hàng {row+1}, cột {col+1}) -> {'ĐÚNG ✓' if is_correct else 'SAI ✗'}\n")
-
-        self.is_agent_thinking = False
-
-        if self.game.is_game_over():
-            self._end_game()
-            return
-
-        self.is_human_turn = True
-        self.info_label.config(text="Lượt của Bạn! Click chọn 1 ô trống, gõ phím số (1-9) để điền.")
+        
+        self.info_label.config(text=f"AI ép bạn giải ô ({next_r+1}, {next_c+1}) đang tô Vàng. Gõ phím số (1-9) để điền.")
 
     def _end_game(self):
         self.game_over = True
-        h, a = self.game.human_score, self.game.agent_score
-        if h > a:
-            result_text = f"🎉 NGƯỜI THẮNG! ({h} - {a})"
-        elif a > h:
-            result_text = f"🤖 AGENT THẮNG! ({a} - {h})"
+        h, a = self.game.human_mistakes, self.game.agent_mistakes
+        
+        if h >= 5:
+            result_text = "🤖 AGENT THẮNG! (Bạn đã mắc đủ 5 lỗi)"
+        elif a >= 5:
+            result_text = "🎉 NGƯỜI THẮNG! (AI đã mắc đủ 5 lỗi - điều này hiếm khi xảy ra!)"
         else:
-            result_text = f"🤝 HÒA! ({h} - {a})"
+            if h < a:
+                result_text = f"🎉 NGƯỜI THẮNG! (Hết ô trống. Lỗi: {h} - {a})"
+            elif a < h:
+                result_text = f"🤖 AGENT THẮNG! (Hết ô trống. Lỗi: {a} - {h})"
+            else:
+                result_text = f"🤝 HÒA! (Hết ô. Lỗi: {h} - {a})"
 
         self.info_label.config(text=f"TRẬN ĐẤU KẾT THÚC — {result_text}")
         self._log(f"\n=== KẾT THÚC TRẬN ĐẤU: {result_text} ===")
@@ -400,4 +454,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

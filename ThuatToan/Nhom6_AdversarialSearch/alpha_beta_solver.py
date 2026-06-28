@@ -1,144 +1,114 @@
 # -*- coding: utf-8 -*-
-"""
-alpha_beta_solver.py
-Cài đặt thuật toán Alpha-Beta Pruning áp dụng cho "SUDOKU BATTLE".
-Dựa trên cấu trúc của minimax_solver.py nhưng tối ưu tốc độ duyệt bằng cách cắt tỉa nhánh.
-"""
-
 import copy
 import random
 from sudoku_utils import SIZE, is_valid, find_empty_cells
 
-
 class AlphaBetaSudokuBattle:
-    def __init__(self, puzzle, real_solution, search_depth=3, candidate_cells_per_turn=6):
+    """
+    SUDOKU BATTLE (Luật Mới: ÉP ĐỐI THỦ GIẢI Ô CHỈ ĐỊNH) - Tối ưu với Alpha-Beta Pruning
+    """
+    def __init__(self, puzzle, real_solution, search_depth=2):
         self.puzzle = copy.deepcopy(puzzle)
         self.real_solution = real_solution
         self.board = copy.deepcopy(puzzle)
         self.search_depth = search_depth
-        self.candidate_cells_per_turn = candidate_cells_per_turn
-
-        self.agent_score = 0
-        self.human_score = 0
+        
+        self.human_mistakes = 0
+        self.agent_mistakes = 0
         self.nodes_evaluated = 0
 
     def get_empty_cells(self):
         return find_empty_cells(self.board)
 
     def is_game_over(self):
+        if self.human_mistakes >= 5 or self.agent_mistakes >= 5:
+            return True
         return len(self.get_empty_cells()) == 0
 
     def human_move(self, row, col, value):
-        self.board[row][col] = value
         is_correct = (value == self.real_solution[row][col])
         if is_correct:
-            self.human_score += 1
+            self.board[row][col] = value
+        else:
+            self.human_mistakes += 1
         return is_correct
 
     def agent_move(self, row, col, value):
-        self.board[row][col] = value
         is_correct = (value == self.real_solution[row][col])
         if is_correct:
-            self.agent_score += 1
+            self.board[row][col] = value
+        else:
+            self.agent_mistakes += 1
         return is_correct
 
-    def _evaluate(self, board, agent_score, human_score, remaining_empty):
-        return (agent_score - human_score) + 0.5 * len(remaining_empty)
+    def _hardness(self, board, r, c):
+        return sum(1 for v in range(1, 10) if is_valid(board, r, c, v))
 
-    def _candidate_moves(self, board, empty_cells, limit):
-        scored_cells = []
-        for (r, c) in empty_cells:
-            valid_values = [v for v in range(1, 10) if is_valid(board, r, c, v)]
-            if not valid_values:
-                valid_values = list(range(1, 10))
-            scored_cells.append((r, c, valid_values))
-
-        scored_cells.sort(key=lambda item: len(item[2]))
-        return scored_cells[:limit]
-
-    def _alpha_beta(self, board, agent_score, human_score, depth, alpha, beta, is_agent_turn, trace=None):
+    def _alphabeta(self, board, depth, alpha, beta, is_max_turn):
         self.nodes_evaluated += 1
         empty_cells = find_empty_cells(board)
-
         if depth == 0 or not empty_cells:
-            return self._evaluate(board, agent_score, human_score, empty_cells)
+            return 0
 
-        candidates = self._candidate_moves(board, empty_cells, self.candidate_cells_per_turn)
-        if not candidates:
-            return self._evaluate(board, agent_score, human_score, empty_cells)
-
-        if is_agent_turn:
-            best_value = float('-inf')
-            for (r, c, valid_values) in candidates:
-                for v in valid_values:
-                    board[r][c] = v
-                    correct = (v == self.real_solution[r][c])
-                    new_agent_score = agent_score + (1 if correct else 0)
-
-                    value = self._alpha_beta(board, new_agent_score, human_score,
-                                           depth - 1, alpha, beta, False)
-
-                    if trace is not None:
-                        trace.append({'row': r, 'col': c, 'value': v, 'score': value, 'player': 'agent'})
-
-                    board[r][c] = 0
-                    best_value = max(best_value, value)
-                    alpha = max(alpha, best_value)
-                    if beta <= alpha:
-                        break # Beta cut-off
+        if is_max_turn:
+            best_val = float('-inf')
+            for r, c in empty_cells:
+                hardness = self._hardness(board, r, c)
+                board[r][c] = self.real_solution[r][c]
+                val = hardness + self._alphabeta(board, depth - 1, alpha, beta, False)
+                board[r][c] = 0
+                
+                best_val = max(best_val, val)
+                alpha = max(alpha, best_val)
                 if beta <= alpha:
                     break
-            return best_value
+            return best_val
         else:
-            best_value = float('inf')
-            for (r, c, valid_values) in candidates:
-                for v in valid_values:
-                    board[r][c] = v
-                    correct = (v == self.real_solution[r][c])
-                    new_human_score = human_score + (1 if correct else 0)
-
-                    value = self._alpha_beta(board, agent_score, new_human_score,
-                                           depth - 1, alpha, beta, True)
-
-                    board[r][c] = 0
-                    best_value = min(best_value, value)
-                    beta = min(beta, best_value)
-                    if beta <= alpha:
-                        break # Alpha cut-off
+            best_val = float('inf')
+            for r, c in empty_cells:
+                hardness = self._hardness(board, r, c)
+                board[r][c] = self.real_solution[r][c]
+                val = -hardness + self._alphabeta(board, depth - 1, alpha, beta, True)
+                board[r][c] = 0
+                
+                best_val = min(best_val, val)
+                beta = min(beta, best_val)
                 if beta <= alpha:
                     break
-            return best_value
+            return best_val
 
-    def agent_choose_move(self):
+    def agent_choose_target(self):
         empty_cells = find_empty_cells(self.board)
         if not empty_cells:
             return None
 
-        candidates = self._candidate_moves(self.board, empty_cells, self.candidate_cells_per_turn)
+        candidates = []
+        for r, c in empty_cells:
+            candidates.append((r, c, self._hardness(self.board, r, c)))
+        
+        candidates.sort(key=lambda x: x[2], reverse=True)
+        candidates = candidates[:6]
 
-        best_value = float('-inf')
-        best_move = None
-        trace = []
+        best_val = float('-inf')
         alpha = float('-inf')
         beta = float('inf')
+        best_move = None
+        trace = []
 
-        for (r, c, valid_values) in candidates:
-            for v in valid_values:
-                self.board[r][c] = v
-                correct = (v == self.real_solution[r][c])
-                new_agent_score = self.agent_score + (1 if correct else 0)
+        for r, c, hardness in candidates:
+            self.board[r][c] = self.real_solution[r][c]
+            val = hardness + self._alphabeta(self.board, self.search_depth - 1, alpha, beta, False)
+            self.board[r][c] = 0
+            
+            trace.append({'row': r, 'col': c, 'score': val, 'hardness': hardness, 'alpha': alpha, 'beta': beta})
+            if val > best_val:
+                best_val = val
+                best_move = (r, c)
+            alpha = max(alpha, best_val)
+                
+        if best_move is None:
+            best_move = (candidates[0][0], candidates[0][1])
 
-                value = self._alpha_beta(self.board, new_agent_score, self.human_score,
-                                       self.search_depth - 1, alpha, beta, False)
-
-                trace.append({'row': r, 'col': c, 'value': v, 'score': round(value, 2)})
-
-                self.board[r][c] = 0
-
-                if value > best_value:
-                    best_value = value
-                    best_move = (r, c, v)
-                alpha = max(alpha, best_value)
-
-        trace.sort(key=lambda t: -t['score'])
-        return best_move[0], best_move[1], best_move[2], trace
+        nodes = self.nodes_evaluated
+        self.nodes_evaluated = 0
+        return best_move[0], best_move[1], trace, nodes
