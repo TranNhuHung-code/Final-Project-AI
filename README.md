@@ -1,8 +1,8 @@
 # Đồ án cuối kỳ - Trí Tuệ Nhân Tạo: 18 Thuật Toán Tìm Kiếm Giải Sudoku 9x9
 
-Dự án này là tập hợp 18 thuật toán trí tuệ nhân tạo chia làm 6 nhóm khác nhau để giải quyết bài toán Sudoku 9x9 và biến thể Sudoku Battle. Toàn bộ mã nguồn đã được tái cấu trúc dưới dạng một Dashboard quản lý chung.
+Dự án này là tập hợp 18 thuật toán trí tuệ nhân tạo chia làm 6 nhóm khác nhau để giải quyết bài toán Sudoku 9x9 và biến thể **Sudoku Battle**. Toàn bộ mã nguồn đã được tái cấu trúc dưới dạng một Dashboard quản lý chung mang phong cách Cyberpunk hiện đại.
 
-## Cấu trúc thư mục mới
+## Cấu trúc thư mục
 
 Dự án được phân chia rõ ràng thành 2 phần cốt lõi: Giao diện và Thuật toán.
 
@@ -12,7 +12,7 @@ Final-Project-AI/
 ├── main.py                           # Giao diện Dashboard quản lý toàn bộ 18 thuật toán
 ├── base_gui.py                       # Các thành phần giao diện dùng chung (BaseSudokuApp)
 ├── sudoku_utils.py                   # Tiện ích xử lý Sudoku (sinh đề, validate, tính toán...)
-├── README.md                         # Tài liệu hướng dẫn (File bạn đang đọc)
+├── README.md                         # Tài liệu hướng dẫn
 │
 ├── GiaoDien/                         # Chứa 18 file mã nguồn giao diện (Tkinter)
 │   ├── Nhom1_UninformedSearch/       # 01_IDS, 07_BFS, 08_DFS
@@ -23,12 +23,12 @@ Final-Project-AI/
 │   └── Nhom6_AdversarialSearch/      # 06_Minimax, 17_AlphaBeta, 18_Expectimax
 │
 └── ThuatToan/                        # Chứa 18 file mã nguồn logic thuật toán cốt lõi
-    ├── Nhom1_UninformedSearch/       # ids, bfs, dfs
-    ├── Nhom2_InformedSearch/         # idastar, greedy, astar
-    ├── Nhom3_LocalSearch/            # sa, hill_climbing, local_beam
-    ├── Nhom4_ComplexSearch/          # partial_observable, and_or, sensorless
-    ├── Nhom5_CSP/                    # forward_checking, backtracking, min_conflicts
-    └── Nhom6_AdversarialSearch/      # minimax, alpha_beta, expectimax
+    ├── Nhom1_UninformedSearch/       # ...
+    ├── Nhom2_InformedSearch/         # ...
+    ├── Nhom3_LocalSearch/            # ...
+    ├── Nhom4_ComplexSearch/          # ...
+    ├── Nhom5_CSP/                    # ...
+    └── Nhom6_AdversarialSearch/      # Cây tìm kiếm Minimax, Alpha-Beta, Expectimax cho Sudoku Battle
 ```
 
 ## Yêu cầu cài đặt
@@ -41,7 +41,7 @@ Final-Project-AI/
 
 Không cần cài thêm bất kỳ thư viện ngoài nào khác (dự án chỉ sử dụng các thư viện chuẩn của Python).
 
-## Cách sử dụng
+## Hướng dẫn sử dụng
 
 Chỉ cần khởi chạy giao diện Dashboard ở thư mục gốc:
 
@@ -54,15 +54,22 @@ Từ bảng điều khiển chính, bạn có thể:
 2. Rê chuột để xem thông tin chi tiết các biến thể thuật toán.
 3. Click trực tiếp vào một thuật toán bất kỳ để mở ứng dụng giải Sudoku tương ứng.
 
-Mỗi ứng dụng (từ Nhóm 1 đến Nhóm 5) sẽ tự sinh ra một đề Sudoku ngẫu nhiên, hiển thị giao diện trực quan với các tính năng:
+### Nhóm 1 đến Nhóm 5 (Giải Sudoku Tự Động)
+Mỗi ứng dụng sẽ tự sinh ra một đề Sudoku ngẫu nhiên, hiển thị giao diện trực quan với các tính năng:
 - **Giải (chạy ngầm)**: Agent tự động giải bằng thuật toán tương ứng ở luồng riêng (không gây treo giao diện).
 - **Phát lại từng bước**: Trực quan hóa lại quá trình thuật toán đã chạy, có thanh chỉnh tốc độ (nhanh/chậm).
 - **Nhảy đến kết quả**: Bỏ qua phần hoạt ảnh phát lại, hiển thị ngay bảng Sudoku đã được giải xong.
-- **Đề mới**: Sinh một đề Sudoku ngẫu nhiên khác để thử lại.
+- **Tự nhập đề**: Cho phép người dùng tự tạo đề từ bàn phím.
 
-Riêng các ứng dụng thuộc **Nhóm 6 (Adversarial Search)** là chương trình **tương tác đối kháng trực tiếp 2 người chơi (Sudoku Battle)**:
-- Người chơi click chọn ô trống + nhập số từ bàn phím.
-- Ngay sau đó, Agent (sử dụng thuật toán Minimax, Alpha-Beta Pruning, hoặc Expectimax) sẽ tự động suy luận để chọn nước đi tiếp theo phản hồi lại.
+### Nhóm 6 (Adversarial Search) - SUDOKU BATTLE
+Nhóm 6 mô phỏng môi trường tương tác đối kháng giữa Người chơi và Trí tuệ nhân tạo (AI):
+- **Cơ chế luân phiên:** Người chơi sẽ chọn một ô trống và yêu cầu AI giải.
+- **AI tính toán:** Sau khi giải xong, AI sẽ sử dụng các thuật toán đối kháng (Minimax, Alpha-Beta, Expectimax) để đánh giá toàn bộ bàn cờ, từ đó chọn ra một ô trống có độ khó cao nhất yêu cầu người chơi giải lại.
+- **Hệ thống đánh giá:** 
+  - Nếu điền sai, người chơi bị cộng 1 điểm Lỗi. 
+  - Hệ thống sẽ hiển thị gợi ý (danh sách các số hợp lệ) để hỗ trợ quá trình suy luận.
+  - Bên nào đạt **5 lỗi** trước sẽ thua cuộc.
+- **Minh họa thuật toán:** Giao diện tích hợp tab "Cây Suy Luận AI" để hiển thị chi tiết tiến trình tìm kiếm của AI (số lượng node duyệt qua, thời gian suy luận, điểm số của từng trạng thái, và giá trị cắt tỉa Alpha-Beta).
 
 ## Tài liệu
 
