@@ -62,7 +62,7 @@ class MinConflictsSolver:
 
     def solve(self):
         current = self._init_random_board()
-        self.steps.append(SearchStep(current, -1, -1, 0, 'new_iteration', detail=f"Khởi tạo bảng ngẫu nhiên. Số lỗi hiện tại: {self.get_total_conflicts(current)}"))
+        self.steps.append(SearchStep(current, -1, -1, 0, 'new_iteration', detail=f"Khởi tạo bảng ngẫu nhiên. Số lỗi hiện tại: {count_conflicts(current)}"))
         
         for step_idx in range(self.max_steps):
             conflicted = self._get_conflicted_variables(current)
@@ -87,6 +87,8 @@ class MinConflictsSolver:
             best_v = random.choice(best_vals)
             current[r][c] = best_v
             
-            self.steps.append(SearchStep(current, r, c, best_v, 'try', detail=f"Min-Conflicts: Chọn biến conflict tại ({r},{c}). Thay đổi giá trị để giảm lỗi."))
+            self.steps.append(SearchStep(current, r, c, best_v, 'try', detail=f"Min-Conflicts: Chọn biến conflict tại ({r},{c}). Đổi thành {best_v} để giảm lỗi."))
             
+        # Hết max_steps mà vẫn chưa giải xong -> kẹt cục bộ
         return None, self.steps, {'steps': self.max_steps}
+

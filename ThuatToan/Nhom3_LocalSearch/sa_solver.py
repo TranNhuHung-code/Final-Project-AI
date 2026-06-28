@@ -126,7 +126,7 @@ class SimulatedAnnealingSolver:
             restart_count += 1
             if restart_count < self.max_restarts:
                 self.steps.append(SearchStep(result_board, -1, -1, -1,
-                                              'restart', current_h, self.T0))
+                                              'restart', detail=f"Restart. H={current_h}", h_value=current_h, temperature=self.T0))
 
         # Hết số lần restart cho phép mà vẫn chưa hội tụ về 0 xung đột
         stats = {
@@ -183,7 +183,7 @@ class SimulatedAnnealingSolver:
             if step_count % 3 == 0 or action == 'accept_better':
                 self.steps.append(SearchStep(
                     current if action != 'reject' else neighbor,
-                    row, c1, c2, action, current_h if action != 'reject' else neighbor_h, T
+                    row, c1, c2, action, detail=f"SA step. H={current_h}, T={T:.4f}", col1=c1, col2=c2, h_value=current_h if action != 'reject' else neighbor_h, temperature=T
                 ))
 
             T = T * self.alpha

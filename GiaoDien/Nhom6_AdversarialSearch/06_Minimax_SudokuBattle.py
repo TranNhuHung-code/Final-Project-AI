@@ -203,7 +203,6 @@ class MinimaxBattleApp:
             self.edit_mode = True
             self.btn_edit.config(text="✓ Xác nhận đề", bg="#00E473", fg="black")
             self.btn_new_game.config(state="disabled")
-            self.btn_confirm.config(state="disabled")
             self.btn_undo.config(state="disabled")
             
             # Clear board
@@ -224,7 +223,6 @@ class MinimaxBattleApp:
             self.edit_mode = False
             self.btn_edit.config(text="Tự nhập đề", bg="#9D4EDD", fg=TXT_B)
             self.btn_new_game.config(state="normal")
-            self.btn_confirm.config(state="normal")
             self.btn_undo.config(state="normal")
             
             self._start_game_with_puzzle()
@@ -305,7 +303,7 @@ class MinimaxBattleApp:
         r, c = self.selected_cell
 
         if self.edit_mode:
-            if event.char in "123456789":
+            if event.char and event.char in "123456789":
                 self.puzzle[r][c] = int(event.char)
                 self._render_board()
             elif event.keysym in ("BackSpace", "Delete", "0"):
@@ -314,7 +312,7 @@ class MinimaxBattleApp:
         else:
             if self.game_over or not self.is_human_turn or self.is_agent_thinking:
                 return
-            if event.char in "123456789":
+            if event.char and event.char in "123456789":
                 value = int(event.char)
                 is_correct = self.game.human_move(r, c, value)
                 self.moves_history.append({'row': r, 'col': c, 'val': value, 'by_agent': False, 'correct': is_correct})
