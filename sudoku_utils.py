@@ -97,22 +97,23 @@ def candidates_for_cell(board, row, col):
 
 def heuristic_min_conflicts_domain(board):
     """
-    h(n) "thông minh" hơn cho A*/IDA*: tổng số lựa chọn khả dĩ bị mất đi.
-    Càng nhiều ô có ít lựa chọn (domain nhỏ) thì heuristic càng lớn
-    -> ưu tiên các trạng thái có ràng buộc chặt hơn (gần giống MRV trong CSP).
-    Giá trị trả về luôn xấp xỉ chứ không đảm bảo admissible 100%, dùng cho mục
-    đích minh họa giáo trình.
+    h(n) kết hợp số ô trống (chi phí nền) và tổng số ứng viên khả dĩ.
+    Bằng cách tính tổng số ứng viên khả dĩ làm trọng số phụ (cộng thêm một lượng nhỏ),
+    A* sẽ ưu tiên mở rộng (có h(n) nhỏ hơn) các trạng thái bị thắt chặt hơn
+    (ít lựa chọn hơn), mô phỏng cơ chế MRV trong khi vẫn giữ h(n) bám sát
+    chi phí thật (admissible).
     """
     empties = find_empty_cells(board)
     if not empties:
         return 0
-    total = 0
+    total_candidates = 0
     for (r, c) in empties:
         n_candidates = len(candidates_for_cell(board, r, c))
         if n_candidates == 0:
             return float('inf')  # Dead-end, không thể giải tiếp
-        total += (9 - n_candidates)
-    return total + len(empties)  # cộng thêm số ô trống để đảm bảo > 0 trừ khi xong
+        total_candidates += n_candidates
+        
+    return len(empties) + (total_candidates / 100.0)
 
 
 def _fill_full_board(board):
