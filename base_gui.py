@@ -15,38 +15,62 @@ from tkinter import ttk
 import time
 import threading
 import copy
+import json
+import os
 
 from sudoku_utils import generate_puzzle, SIZE, BOX, is_valid
 
-# ===================== CẤU HÌNH MÀU SẮC (Cyberpunk Theme) =====================
-BG = "#080816"              
-CARD = "#141630"            
-CARD_H = "#1E203E"          
-ACCENT = "#00C6FF"          
-TXT = "#D7DAE8"             
-TXT_D = "#646987"           
-TXT_B = "#FFFFFF"           
+# File de chia se giua main.py va cac cua so con
+_SHARED_PUZZLE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".current_puzzle.json")
 
-COLOR_EMPTY_BG = "#1A1C38"
-COLOR_CLUE_BG = "#2A2D54"
-COLOR_CLUE_TEXT = "#A0A5D0"
+def _load_shared_puzzle():
+    """Doc de tu file chia se (neu co). Tra ve board 9x9 hoac None."""
+    try:
+        if os.path.exists(_SHARED_PUZZLE_FILE):
+            with open(_SHARED_PUZZLE_FILE, "r") as f:
+                board = json.load(f)
+            if len(board) == 9 and all(len(row) == 9 for row in board):
+                return board
+    except Exception:
+        pass
+    return None
 
-COLOR_TRY_BG = "#FFF3B0"    
-COLOR_TRY_TEXT = "#946800"
-COLOR_BACKTRACK_BG = "#FF325A" 
-COLOR_BACKTRACK_TEXT = "#FFFFFF"
+# ===================== CẤU HÌNH MÀU SẮC (Warm Dashboard Theme) =====================
+BG = "#ECEEF3"               # xam xanh nhat - nhe mat
+CARD = "#FFFFFF"             # the trang
+CARD_HOVER = "#E8EDF5"       # hover xanh nhat
+BORDER = "#C5CAD3"           # vien xam
+ACCENT = "#2C3E6B"           # xanh duong dam
+TXT = "#1A1A2E"              # xanh den dam
+TXT_D = "#4A4A68"            # chu thong tin phu
+TXT_B = "#1A1A2E"            # chu chinh dam
+HEADER_BG = "#2C3E6B"
+HEADER_FG = "#FFFFFF"
+WHITE = "#FFFFFF"
 
-COLOR_SOLVED_BG = "#00E473"    
-COLOR_SOLVED_TEXT = "#000000"
-COLOR_NEW_ITER_FLASH = "#00B9FF"
+COLOR_EMPTY_BG = "#FAFBFF"       # o trong
+COLOR_CLUE_BG = "#E6EBF5"        # o de bai
+COLOR_CLUE_TEXT = "#1A1A2E"      # mau chu o de bai
 
-COLOR_SELECTED_BG = "#2c3e50"
+COLOR_TRY_BG = "#FFF8E1"         # o dang thu (vang nhat)
+COLOR_TRY_TEXT = "#B78103"       # chu vang dam
+COLOR_BACKTRACK_BG = "#FFEBEE"   # o quay lui (do nhat)
+COLOR_BACKTRACK_TEXT = "#C62828" # chu do dam
+
+COLOR_SOLVED_BG = "#E8F5E9"      # o da giai xong (xanh la nhat)
+COLOR_SOLVED_TEXT = "#2E7D32"    # chu xanh la dam
+COLOR_NEW_ITER_FLASH = "#E3F2FD" # lap moi (xanh duong nhat)
+
+COLOR_SELECTED_BG = "#C5D5F0"    # o dang chon trong edit mode
+GRID_CELL_BORDER = "#B0B8C8"     # vien mong o con
+GRID_BOX_BORDER = "#2C3E6B"      # vien dam o 3x3
 
 # Fonts
-FONT_CELL = ("Segoe UI", 18, "bold")
-FONT_LABEL = ("Segoe UI", 11)
-FONT_TITLE = ("Segoe UI", 18, "bold")
-FONT_LOG = ("Consolas", 10)
+FONT_CELL = ("Segoe UI", 16, "bold")
+FONT_LABEL = ("Segoe UI", 10)
+FONT_TITLE = ("Segoe UI", 16, "bold")
+FONT_LOG = ("Consolas", 9)
+
 
 
 class BaseSudokuApp:
@@ -74,123 +98,138 @@ class BaseSudokuApp:
         
         self.edit_mode = False
         self.selected_cell = None
+        self._used_shared_puzzle = False  # chi dung shared puzzle lan dau
 
         self._build_ui()
         
-        # Init first puzzle
-        self._set_difficulty()
+        # Init first puzzle - uu tien de tu main.py
+        self._load_initial_puzzle()
         
         # Key bindings
         self.root.bind("<Key>", self.on_key_press)
 
     def _build_ui(self):
-        # Header
-        header_frame = tk.Frame(self.root, bg=BG)
-        header_frame.pack(fill=tk.X, pady=(15, 5))
+        # Header - Thanh tieu de xanh dam giong main.py
+        header_frame = tk.Frame(self.root, bg=HEADER_BG)
+        header_frame.pack(fill=tk.X)
         
-        lbl_title = tk.Label(header_frame, text=self.title_text, font=FONT_TITLE, bg=BG, fg=ACCENT)
-        lbl_title.pack()
+        lbl_title = tk.Label(header_frame, text=self.title_text, font=FONT_TITLE, bg=HEADER_BG, fg=HEADER_FG)
+        lbl_title.pack(pady=(12, 2))
         
-        lbl_sub = tk.Label(header_frame, text=self.subtitle_text, font=FONT_LABEL, bg=BG, fg=TXT_D)
-        lbl_sub.pack()
+        lbl_sub = tk.Label(header_frame, text=self.subtitle_text, font=FONT_LABEL, bg=HEADER_BG, fg="#A8B8D8")
+        lbl_sub.pack(pady=(0, 10))
 
         # Body
         body_frame = tk.Frame(self.root, bg=BG)
         body_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
-        # Trái: Grid
-        left_frame = tk.Frame(body_frame, bg=CARD, bd=0, relief="flat", highlightbackground=ACCENT, highlightthickness=1)
+        # Trái: Grid (Khung vien mong chua bang grid)
+        left_frame = tk.Frame(body_frame, bg=CARD, bd=1, relief="solid", highlightbackground=BORDER, highlightthickness=0)
         left_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
         grid_container = tk.Frame(left_frame, bg=CARD)
         grid_container.pack(padx=15, pady=15)
 
-        grid_frame = tk.Frame(grid_container, bg="#2A2D54", bd=2)
+        # Frame chinh cua grid Sudoku - dung vien dam 3px xanh dam
+        grid_frame = tk.Frame(grid_container, bg=GRID_BOX_BORDER, bd=3, relief="solid")
         grid_frame.pack()
 
+        # Khoi tao bang cac o label voi viền 3x3 và ô con
         self.cell_labels = [[None] * SIZE for _ in range(SIZE)]
-        for r in range(SIZE):
-            for c in range(SIZE):
-                pad_top = 3 if r % BOX == 0 else 1
-                pad_left = 3 if c % BOX == 0 else 1
-                pad_bottom = 3 if r == SIZE - 1 else 1
-                pad_right = 3 if c == SIZE - 1 else 1
+        self.box_frames = [[None]*3 for _ in range(3)]
+        
+        for br in range(3):
+            for bc in range(3):
+                # Frame ngoai cua tung o 3x3 de co duong phan cach day
+                box = tk.Frame(grid_frame, bg=GRID_CELL_BORDER, bd=0)
+                box.grid(row=br, column=bc,
+                         padx=(2 if bc > 0 else 0, 0),
+                         pady=(2 if br > 0 else 0, 0))
+                self.box_frames[br][bc] = box
 
-                cell = tk.Label(
-                    grid_frame, text="", width=3, height=1,
-                    font=FONT_CELL, bg=COLOR_EMPTY_BG, fg=TXT_B,
-                    relief="flat", borderwidth=0, cursor="hand2"
-                )
-                cell.grid(row=r, column=c, padx=(pad_left, pad_right), pady=(pad_top, pad_bottom), sticky="nsew")
-                cell.bind("<Button-1>", lambda e, rr=r, cc=c: self.on_cell_click(rr, cc))
-                self.cell_labels[r][c] = cell
+                for lr in range(3):
+                    for lc in range(3):
+                        r = br * 3 + lr
+                        c = bc * 3 + lc
+                        cell = tk.Label(
+                            box, text="", width=2, height=1,
+                            font=FONT_CELL, bg=COLOR_EMPTY_BG, fg=TXT_B,
+                            relief="flat", bd=0, cursor="hand2"
+                        )
+                        # Grid voi spacing tao duong vien mong giua cac o con
+                        cell.grid(row=lr, column=lc,
+                                  padx=(0, 1 if lc < 2 else 0),
+                                  pady=(0, 1 if lr < 2 else 0),
+                                  ipadx=5, ipady=3)
+                        cell.bind("<Button-1>", lambda e, rr=r, cc=c: self.on_cell_click(rr, cc))
+                        self.cell_labels[r][c] = cell
 
         # Phải: Controls + Logs
         right_frame = tk.Frame(body_frame, bg=BG)
         right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        control_frame = tk.Frame(right_frame, bg=CARD, highlightbackground=ACCENT, highlightthickness=1)
+        control_frame = tk.Frame(right_frame, bg=CARD, bd=1, relief="solid", highlightbackground=BORDER, highlightthickness=0)
         control_frame.pack(fill=tk.X, pady=(0, 10))
 
-        btn_style = {"font": FONT_LABEL, "relief": "flat", "padx": 4, "pady": 5, "cursor": "hand2", "disabledforeground": "#A9B1D6"}
+        btn_base = {"font": FONT_LABEL, "relief": "solid", "bd": 1, "padx": 8, "pady": 4, "cursor": "hand2"}
 
         # Hàng 1: Đề bài
         row1_frame = tk.Frame(control_frame, bg=CARD)
-        row1_frame.pack(fill=tk.X, pady=10, padx=10)
+        row1_frame.pack(fill=tk.X, pady=8, padx=10)
         
-        tk.Label(row1_frame, text="Độ khó:", font=FONT_LABEL, bg=CARD, fg=TXT_B).pack(side=tk.LEFT, padx=(0,5))
+        tk.Label(row1_frame, text="Độ khó:", font=FONT_LABEL, bg=CARD, fg=TXT).pack(side=tk.LEFT, padx=(0,5))
         
         self.diff_var = tk.StringVar(value="Trung bình")
         combo_diff = ttk.Combobox(row1_frame, textvariable=self.diff_var, values=["Dễ", "Trung bình", "Khó", "Cực Khó"], state="readonly", width=12)
         combo_diff.pack(side=tk.LEFT, padx=5)
         combo_diff.bind("<<ComboboxSelected>>", lambda e: self._set_difficulty())
         
-        self.btn_new = tk.Button(row1_frame, text="↻ Sinh Đề Mới", command=self._set_difficulty, bg="#FFBE00", fg="black", activebackground="#D9A200", **btn_style)
+        self.btn_new = tk.Button(row1_frame, text="Sinh Đề Mới", command=self._set_difficulty, bg=CARD, fg=TXT, activebackground=CARD_HOVER, **btn_base)
         self.btn_new.pack(side=tk.LEFT, padx=5)
 
-        self.btn_edit = tk.Button(row1_frame, text="Tự nhập đề", command=self.toggle_edit_mode, bg="#9D4EDD", fg=TXT_B, activebackground="#7B2CBF", **btn_style)
+        self.btn_edit = tk.Button(row1_frame, text="Tự nhập đề", command=self.toggle_edit_mode, bg=CARD, fg=TXT, activebackground=CARD_HOVER, **btn_base)
         self.btn_edit.pack(side=tk.LEFT, padx=5)
 
         # Hàng 2: Playback
         row2_frame = tk.Frame(control_frame, bg=CARD)
-        row2_frame.pack(fill=tk.X, pady=5, padx=10)
+        row2_frame.pack(fill=tk.X, pady=4, padx=10)
 
-        self.btn_solve = tk.Button(row2_frame, text=f"▶ Giải", command=self.on_solve_click, bg="#0066FF", fg=TXT_B, activebackground="#0052CC", **btn_style)
+        self.btn_solve = tk.Button(row2_frame, text="Giải", command=self.on_solve_click, bg=ACCENT, fg=WHITE, activebackground="#1E2D50", **btn_base)
         self.btn_solve.pack(side=tk.LEFT, padx=(0,5))
 
-        self.btn_stop = tk.Button(row2_frame, text="⏹ Dừng", state="disabled", command=self.on_stop_click, bg="#FF325A", fg=TXT_B, activebackground="#CC2848", **btn_style)
+        self.btn_stop = tk.Button(row2_frame, text="Dừng", state="disabled", command=self.on_stop_click, bg="#FFEBEE", fg="#C62828", activebackground="#FFCDD2", **btn_base)
         self.btn_stop.pack(side=tk.LEFT, padx=5)
 
-        self.btn_play = tk.Button(row2_frame, text="⏵ Phát lại", state="disabled", command=self.on_play_click, bg="#00E473", fg="black", activebackground="#00C463", **btn_style)
+        self.btn_play = tk.Button(row2_frame, text="Phát lại", state="disabled", command=self.on_play_click, bg="#E8F5E9", fg="#2E7D32", activebackground="#C8E6C9", **btn_base)
         self.btn_play.pack(side=tk.LEFT, padx=5)
         
-        self.btn_pause = tk.Button(row2_frame, text="⏸ Tạm dừng", state="disabled", command=self.on_pause_click, bg=TXT_D, fg=TXT_B, **btn_style)
+        self.btn_pause = tk.Button(row2_frame, text="Tạm dừng", state="disabled", command=self.on_pause_click, bg=CARD, fg=TXT, activebackground=CARD_HOVER, **btn_base)
         self.btn_pause.pack(side=tk.LEFT, padx=5)
 
-        self.btn_skip = tk.Button(row2_frame, text="⏭ Bỏ qua", state="disabled", command=self.on_skip_click, bg=TXT_D, fg=TXT_B, **btn_style)
+        self.btn_skip = tk.Button(row2_frame, text="Bỏ qua", state="disabled", command=self.on_skip_click, bg=CARD, fg=TXT, activebackground=CARD_HOVER, **btn_base)
         self.btn_skip.pack(side=tk.LEFT, padx=5)
 
         # Hàng 3: Tua lại (Scrubbing)
         row3_frame = tk.Frame(control_frame, bg=CARD)
-        row3_frame.pack(fill=tk.X, pady=5, padx=10)
+        row3_frame.pack(fill=tk.X, pady=4, padx=10)
         
-        tk.Label(row3_frame, text="Tiến độ giải:", font=FONT_LABEL, bg=CARD, fg=TXT_B, width=10, anchor="w").pack(side=tk.LEFT)
+        tk.Label(row3_frame, text="Tiến độ giải:", font=FONT_LABEL, bg=CARD, fg=TXT, width=10, anchor="w").pack(side=tk.LEFT)
         
-        self.btn_step_back = tk.Button(row3_frame, text="◄", command=self.on_step_back_click, bg=CARD_H, fg=TXT_B, font=("Segoe UI", 10, "bold"), relief="flat", padx=5)
+        self.btn_step_back = tk.Button(row3_frame, text="◄", command=self.on_step_back_click, bg=CARD, fg=TXT, font=("Segoe UI", 9, "bold"), relief="solid", bd=1, padx=6)
         self.btn_step_back.pack(side=tk.LEFT, padx=2)
         
-        self.progress_scale = tk.Scale(row3_frame, from_=0, to=0, orient="horizontal", bg=CARD, fg=TXT_B, troughcolor=BG, highlightthickness=0, command=self._on_progress_drag)
+        self.progress_scale = tk.Scale(row3_frame, from_=0, to=0, orient="horizontal", bg=CARD, fg=TXT, troughcolor=BG, highlightthickness=0, command=self._on_progress_drag)
         self.progress_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         
-        self.btn_step_forward = tk.Button(row3_frame, text="►", command=self.on_step_forward_click, bg=CARD_H, fg=TXT_B, font=("Segoe UI", 10, "bold"), relief="flat", padx=5)
+        self.btn_step_forward = tk.Button(row3_frame, text="►", command=self.on_step_forward_click, bg=CARD, fg=TXT, font=("Segoe UI", 9, "bold"), relief="solid", bd=1, padx=6)
         self.btn_step_forward.pack(side=tk.LEFT, padx=2)
         
         # Hàng 4: Tốc độ
         row4_frame = tk.Frame(control_frame, bg=CARD)
-        row4_frame.pack(fill=tk.X, pady=(5,10), padx=10)
+        row4_frame.pack(fill=tk.X, pady=(4,8), padx=10)
         
-        tk.Label(row4_frame, text="Tốc độ:", font=FONT_LABEL, bg=CARD, fg=TXT_B, width=10, anchor="w").pack(side=tk.LEFT)
-        self.speed_scale = tk.Scale(row4_frame, from_=1, to=300, orient="horizontal", bg=CARD, fg=TXT_B, troughcolor=BG, highlightthickness=0, command=self._on_speed_change)
+        tk.Label(row4_frame, text="Tốc độ (ms):", font=FONT_LABEL, bg=CARD, fg=TXT, width=10, anchor="w").pack(side=tk.LEFT)
+        self.speed_scale = tk.Scale(row4_frame, from_=1, to=300, orient="horizontal", bg=CARD, fg=TXT, troughcolor=BG, highlightthickness=0, command=self._on_speed_change)
         self.speed_scale.set(self.play_speed_ms)
         self.speed_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
@@ -202,27 +241,27 @@ class BaseSudokuApp:
         style = ttk.Style()
         style.theme_use('default')
         style.configure('TNotebook', background=BG, borderwidth=0)
-        style.configure('TNotebook.Tab', background=CARD, foreground=TXT_B, padding=[10, 5], relief="flat")
-        style.map('TNotebook.Tab', background=[('selected', ACCENT)], foreground=[('selected', 'black')])
+        style.configure('TNotebook.Tab', background="#D5DAE5", foreground=TXT, padding=[12, 5], relief="flat")
+        style.map('TNotebook.Tab', background=[('selected', CARD)], foreground=[('selected', ACCENT)])
 
         self.notebook = ttk.Notebook(right_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
         # Tab 1: Nhật ký hệ thống
-        tab1 = tk.Frame(self.notebook, bg=BG)
+        tab1 = tk.Frame(self.notebook, bg=CARD)
         self.notebook.add(tab1, text="Nhật ký hệ thống")
 
-        self.log_text = tk.Text(tab1, font=FONT_LOG, bg=BG, fg=TXT, state=tk.DISABLED, wrap=tk.WORD, bd=0)
+        self.log_text = tk.Text(tab1, font=FONT_LOG, bg=CARD, fg=TXT, state=tk.DISABLED, wrap=tk.WORD, bd=0)
         scroll1 = tk.Scrollbar(tab1, command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scroll1.set)
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
         scroll1.pack(side=tk.RIGHT, fill=tk.Y, padx=2, pady=5)
 
         # Tab 2: Vết chạy tay
-        tab2 = tk.Frame(self.notebook, bg=BG)
+        tab2 = tk.Frame(self.notebook, bg=CARD)
         self.notebook.add(tab2, text="Vết chạy tay (Trace)")
 
-        self.trace_text = tk.Text(tab2, font=FONT_LOG, bg=BG, fg=TXT, state=tk.DISABLED, wrap=tk.WORD, bd=0)
+        self.trace_text = tk.Text(tab2, font=FONT_LOG, bg=CARD, fg=TXT, state=tk.DISABLED, wrap=tk.WORD, bd=0)
         scroll2 = tk.Scrollbar(tab2, command=self.trace_text.yview)
         self.trace_text.configure(yscrollcommand=scroll2.set)
         self.trace_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -231,14 +270,28 @@ class BaseSudokuApp:
         # Colors for Logs
         for t in (self.log_text, self.trace_text):
             t.tag_configure("info", foreground=TXT_D)
-            t.tag_configure("try", foreground=COLOR_TRY_BG)
-            t.tag_configure("backtrack", foreground=COLOR_BACKTRACK_BG)
-            t.tag_configure("success", foreground=COLOR_SOLVED_BG)
-            t.tag_configure("error", foreground="#FF325A")
+            t.tag_configure("try", foreground=COLOR_TRY_TEXT)
+            t.tag_configure("backtrack", foreground=COLOR_BACKTRACK_TEXT)
+            t.tag_configure("success", foreground=COLOR_SOLVED_TEXT)
+            t.tag_configure("error", foreground=COLOR_BACKTRACK_TEXT)
             t.tag_configure("system", foreground=ACCENT)
 
     # ================= UI LOGIC =================
     
+    def _load_initial_puzzle(self):
+        """Lan dau mo: dung de tu main.py (neu co), neu khong thi sinh moi."""
+        shared = _load_shared_puzzle()
+        if shared is not None and not self._used_shared_puzzle:
+            self._used_shared_puzzle = True
+            self.puzzle = shared
+            self.solver = self.solver_class(self.puzzle)
+            self._reset_state()
+            self._render_board(self.puzzle)
+            self._clear_log()
+            self._log("Đã nạp đề từ Dashboard.", "system")
+        else:
+            self._set_difficulty()
+
     def _set_difficulty(self):
         if self.is_solving or self.is_playing: return
         diff_map = {"Dễ": 45, "Trung bình": 35, "Khó": 25, "Cực Khó": 17}
@@ -561,7 +614,7 @@ class BaseSudokuApp:
                     if is_original_clue:
                         label.config(bg=COLOR_CLUE_BG, fg=COLOR_CLUE_TEXT)
                     else:
-                        label.config(bg="#FF325A", fg="#FFFFFF") # RED
+                        label.config(bg=COLOR_BACKTRACK_BG, fg=COLOR_BACKTRACK_TEXT)
                     continue
 
                 # Playback highlights
@@ -583,19 +636,19 @@ class BaseSudokuApp:
                         elif action_t == 'backtrack':
                             label.config(bg=COLOR_BACKTRACK_BG, fg=COLOR_BACKTRACK_TEXT)
                         elif action_t == 'forward_check_fail':
-                            label.config(bg="#FF325A", fg="#FFFFFF", text="✕")
+                            label.config(bg=COLOR_BACKTRACK_BG, fg=COLOR_BACKTRACK_TEXT, text="✕")
                         elif action_t == 'new_iteration':
                             label.config(bg=COLOR_NEW_ITER_FLASH, fg=COLOR_SOLVED_TEXT)
                         elif action_t in ('swap', 'accept_better', 'beam_update'):
-                            label.config(bg="#00E473", fg="black")
+                            label.config(bg=COLOR_SOLVED_BG, fg=COLOR_SOLVED_TEXT)
                         elif action_t == 'accept_worse':
-                            label.config(bg="#FFBE00", fg="black")
+                            label.config(bg="#FFF9C4", fg="#F57F17")
                         elif action_t == 'reject':
-                            label.config(bg="#FF325A", fg="white")
+                            label.config(bg=COLOR_BACKTRACK_BG, fg=COLOR_BACKTRACK_TEXT)
                         elif action_t == 'restart':
-                            label.config(bg="#00C6FF", fg="black")
+                            label.config(bg="#E3F2FD", fg="#1565C0")
                         elif action_t == 'stuck':
-                            label.config(bg="#FF00FF", fg="white")
+                            label.config(bg="#F3E5F5", fg="#7B1FA2")
                         continue
 
                 # Normal state
